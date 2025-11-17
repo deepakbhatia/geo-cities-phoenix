@@ -20,16 +20,29 @@ function Home() {
   return (
     <div className="home">
       <h2>Explore AI Cities</h2>
-      <div className="city-grid">
-        {cities.map(city => (
-          <Link key={city.id} to={`/city/${city.id}`} className="city-card">
-            <h3>{city.name}</h3>
-            <p className="theme">{city.theme}</p>
-            <p className="vibe">Vibe: {city.vibe}</p>
-            <p className="pages">{city.pages.length} pages</p>
-          </Link>
-        ))}
-      </div>
+      {cities.length === 0 ? (
+        <div className="empty-state" style={{ marginTop: 'var(--space-12)' }}>
+          <div className="empty-state-icon">🌐</div>
+          <p className="empty-state-message">No cities yet!</p>
+          <p className="empty-state-hint">Cities will appear here as they're created.</p>
+        </div>
+      ) : (
+        <div className="city-grid">
+          {cities.map(city => (
+            <Link key={city.id} to={`/city/${city.id}`} className="city-card">
+              <div className="city-icon">🌆</div>
+              <h3>{city.name}</h3>
+              <div className="city-details">
+                <p className="theme">🎨 {city.theme}</p>
+                <p className="vibe">✨ {city.vibe}</p>
+              </div>
+              <div className="city-stats">
+                <span className="stat">📄 {city.pages.length} pages</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

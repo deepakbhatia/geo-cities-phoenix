@@ -129,12 +129,25 @@ function City() {
           <button 
             onClick={generatePublicSquare} 
             disabled={publicSquareLoading}
+            className={publicSquareError ? 'error-button' : ''}
           >
-            {publicSquareLoading ? 'Generating...' : publicSquare ? '🔄 Generate New' : '✨ Generate Update'}
+            {publicSquareLoading ? 'Generating...' : publicSquareError ? '🔄 Try Again' : publicSquare ? '🔄 Generate New' : '✨ Generate Update'}
           </button>
           {publicSquareLoading && <LoadingSpinner message="Consulting the AI town crier..." />}
           {publicSquareError && <div className="error-message">❌ {publicSquareError}</div>}
-          {publicSquare && !publicSquareLoading && <div className="ai-content">{publicSquare}</div>}
+          {!publicSquare && !publicSquareLoading && !publicSquareError && (
+            <div className="empty-state">
+              <div className="empty-state-icon">🏛️</div>
+              <p className="empty-state-message">The town crier is waiting!</p>
+              <p className="empty-state-hint">Click above to hear what's happening in {city.name}.</p>
+            </div>
+          )}
+          {publicSquare && !publicSquareLoading && (
+            <div className="ai-content public-square-content">
+              <div className="announcement-text">{publicSquare}</div>
+              <div className="timestamp">📅 Just now</div>
+            </div>
+          )}
         </section>
 
         <section className="radio">
@@ -142,12 +155,27 @@ function City() {
           <button 
             onClick={generateRadio} 
             disabled={radioLoading}
+            className={radioError ? 'error-button' : ''}
           >
-            {radioLoading ? 'Generating...' : radio ? '🔄 Tune In Again' : '✨ Tune In'}
+            {radioLoading ? 'Generating...' : radioError ? '🔄 Try Again' : radio ? '🔄 Tune In Again' : '✨ Tune In'}
           </button>
           {radioLoading && <LoadingSpinner message="Tuning the airwaves..." />}
           {radioError && <div className="error-message">❌ {radioError}</div>}
-          {radio && !radioLoading && <div className="ai-content">{radio}</div>}
+          {!radio && !radioLoading && !radioError && (
+            <div className="empty-state">
+              <div className="empty-state-icon">📻</div>
+              <p className="empty-state-message">The airwaves are silent...</p>
+              <p className="empty-state-hint">Tune in to discover {city.name}'s unique sound.</p>
+            </div>
+          )}
+          {radio && !radioLoading && (
+            <div className="ai-content radio-content">
+              <div className="radio-display">
+                <div className="now-playing">🎵 NOW PLAYING</div>
+                <div className="radio-text">{radio}</div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="newsletter">
@@ -155,12 +183,28 @@ function City() {
           <button 
             onClick={generateNewsletter} 
             disabled={newsletterLoading}
+            className={newsletterError ? 'error-button' : ''}
           >
-            {newsletterLoading ? 'Generating...' : newsletter ? '🔄 Generate New Issue' : '✨ Generate Issue'}
+            {newsletterLoading ? 'Generating...' : newsletterError ? '🔄 Try Again' : newsletter ? '🔄 Generate New Issue' : '✨ Generate Issue'}
           </button>
           {newsletterLoading && <LoadingSpinner message="Printing the newsletter..." />}
           {newsletterError && <div className="error-message">❌ {newsletterError}</div>}
-          {newsletter && !newsletterLoading && <div className="ai-content">{newsletter}</div>}
+          {!newsletter && !newsletterLoading && !newsletterError && (
+            <div className="empty-state">
+              <div className="empty-state-icon">📰</div>
+              <p className="empty-state-message">No news yet!</p>
+              <p className="empty-state-hint">Generate the first issue to see what's trending in {city.name}.</p>
+            </div>
+          )}
+          {newsletter && !newsletterLoading && (
+            <div className="ai-content newsletter-content">
+              <div className="newsletter-header">
+                <div className="masthead">📰 THE {city.name.toUpperCase()} CHRONICLE</div>
+                <div className="issue-info">Issue #1 • {new Date().toLocaleDateString()}</div>
+              </div>
+              <div className="newsletter-body">{newsletter}</div>
+            </div>
+          )}
         </section>
       </div>
     </div>
