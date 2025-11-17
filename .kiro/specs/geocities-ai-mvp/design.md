@@ -218,7 +218,7 @@ GeoCities AI is a full-stack web application that recreates the GeoCities neighb
 - **Responsiveness**: Grid layouts that adapt to screen size
 
 ### Color Scheme
-- Primary gradient: Brown to blue (`#705C53` to `#FFF2E1`)
+- Primary gradient: Brown to Cream (`#705C53` to `#FFF2E1`)
 - Card backgrounds: Semi-transparent white with blur
 - Text: White with varying opacity for hierarchy
 - Buttons: Transparent white with borders
