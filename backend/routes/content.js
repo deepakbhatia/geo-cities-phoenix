@@ -1,9 +1,19 @@
 import express from 'express';
-import { getContent, createContent } from '../controllers/contentController.js';
+import { 
+  getPages, 
+  getPage, 
+  createPage, 
+  updatePage, 
+  deletePage 
+} from '../controllers/contentController.js';
 
 const router = express.Router();
 
-router.get('/:cityId', getContent);
-router.post('/', createContent);
+// City pages routes
+router.get('/:cityId', getPages);
+router.get('/:cityId/:pageId', getPage);
+router.post('/:cityId', createPage);
+router.put('/:cityId/:pageId', updatePage);
+router.delete('/:cityId/:pageId', deletePage);
 
 export default router;

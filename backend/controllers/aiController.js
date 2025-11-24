@@ -98,3 +98,49 @@ Write it as an immersive description that makes people feel like they're tuning 
 };
 
 export { model };
+
+
+// Generate page content
+export const generatePageContent = async ({ cityId, title, type, prompt }) => {
+  try {
+    // Import cities to get city context
+    const { getCityById } = await import('./cityController.js');
+    const city = getCityById(cityId);
+    
+    if (!city) {
+      throw new Error('City not found');
+    }
+
+    // Build comprehensive prompt
+    const aiPrompt = `You are creating content for a page in GeoCities AI.
+
+City Context:
+- City Name: ${city.name}
+- Theme: ${city.theme}
+- Vibe: ${city.vibe}
+
+Page Details:
+- Title: ${title}
+- Type: ${type}
+- User's Request: ${prompt}
+
+Create engaging, creative content for this page that:
+1. Matches the ${city.vibe} vibe of ${city.name}
+2. Fits the ${city.theme} theme
+3. Is appropriate for a ${type} page
+4. Fulfills the user's request: "${prompt}"
+5. Is 2-4 paragraphs long
+6. Feels authentic to the GeoCities aesthetic (nostalgic, creative, personal)
+
+Write the content now:`;
+
+    const result = await model.generateContent(aiPrompt);
+    const response = await result.response;
+    const content = response.text();
+    
+    return content;
+  } catch (error) {
+    console.error('Error generating page content:', error);
+    throw error;
+  }
+};

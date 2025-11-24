@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageList from '../components/PageList';
 
 function City() {
   const { id } = useParams();
@@ -10,6 +11,10 @@ function City() {
   const [radio, setRadio] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Pages state
+  const [pages, setPages] = useState([]);
+  const [pagesLoading, setPagesLoading] = useState(true);
   
   // Loading states for each feature
   const [publicSquareLoading, setPublicSquareLoading] = useState(false);
@@ -38,6 +43,22 @@ function City() {
         setLoading(false);
       });
   }, [id]);
+
+  // Fetch pages for this city
+  useEffect(() => {
+    if (city) {
+      fetch(`/api/content/${id}`)
+        .then(res => res.json())
+        .then(data => {
+          setPages(data);
+          setPagesLoading(false);
+        })
+        .catch(err => {
+          console.error('Error fetching pages:', err);
+          setPagesLoading(false);
+        });
+    }
+  }, [city, id]);
 
   const generatePublicSquare = async () => {
     try {
@@ -207,6 +228,20 @@ function City() {
           )}
         </section>
       </div>
+
+      <section className="city-pages">
+        <div className="section-header">
+          <h3>📄 Pages ({pages.length})</h3>
+          <Link to={`/city/${id}/create-page`} className="create-page-btn">
+            ✨ Create Page
+          </Link>
+        </div>
+        {pagesLoading ? (
+          <div className="loading">Loading pages...</div>
+        ) : (
+          <PageList cityId={id} pages={pages} />
+        )}
+      </section>
     </div>
   );
 }

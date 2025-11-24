@@ -29,3 +29,8 @@ export const createCity = (req, res) => {
   cities.push(newCity);
   res.status(201).json(newCity);
 };
+
+// Helper function to get city by ID (for internal use)
+export const getCityById = (id) => {
+  return cities.find(c => c.id === id);
+};
