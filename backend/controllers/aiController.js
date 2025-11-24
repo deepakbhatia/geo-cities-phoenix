@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getCachedAIGeneration, saveAIGeneration } from '../utils/aiCache.js';
 
 // Initialize GoogleGenerativeAI with API key from environment
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -12,6 +13,17 @@ export const generatePublicSquare = async (req, res) => {
     const { cityId } = req.params;
     const { cityName, theme, recentActivity } = req.body;
 
+    // Check for cached content first
+    const cached = await getCachedAIGeneration(cityId, 'publicSquare');
+    if (cached) {
+      return res.json({
+        cityId,
+        summary: cached,
+        generatedAt: new Date().toISOString(),
+        cached: true
+      });
+    }
+
     // Build prompt for 2-3 sentence engaging announcement
     const prompt = `You are the town crier for ${cityName}, a ${theme}-themed city in the GeoCities AI platform. 
 Recent activity: ${recentActivity || 'New visitors exploring the city'}
@@ -22,10 +34,14 @@ Write a brief, engaging 2-3 sentence announcement for the public square that cap
     const response = await result.response;
     const summary = response.text();
 
+    // Save to cache
+    await saveAIGeneration(cityId, 'publicSquare', summary);
+
     res.json({
       cityId,
       summary,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      cached: false
     });
   } catch (error) {
     console.error('Error generating public square:', error);
@@ -38,6 +54,17 @@ export const generateNewsletter = async (req, res) => {
   try {
     const { cityId } = req.params;
     const { cityName, theme, pages } = req.body;
+
+    // Check for cached content first
+    const cached = await getCachedAIGeneration(cityId, 'newsletter');
+    if (cached) {
+      return res.json({
+        cityId,
+        newsletter: cached,
+        generatedAt: new Date().toISOString(),
+        cached: true
+      });
+    }
 
     const pageCount = pages?.length || 0;
 
@@ -55,10 +82,14 @@ Make it engaging, informative, and capture the spirit of this ${theme}-themed co
     const response = await result.response;
     const newsletter = response.text();
 
+    // Save to cache
+    await saveAIGeneration(cityId, 'newsletter', newsletter);
+
     res.json({
       cityId,
       newsletter,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      cached: false
     });
   } catch (error) {
     console.error('Error generating newsletter:', error);
@@ -71,6 +102,17 @@ export const generateRadio = async (req, res) => {
   try {
     const { cityId } = req.params;
     const { cityName, vibe } = req.body;
+
+    // Check for cached content first
+    const cached = await getCachedAIGeneration(cityId, 'radio');
+    if (cached) {
+      return res.json({
+        cityId,
+        radioDescription: cached,
+        generatedAt: new Date().toISOString(),
+        cached: true
+      });
+    }
 
     // Build prompt for genre, mood descriptors, and 3 fictional song titles
     const prompt = `You are creating the radio station for ${cityName}, a city with a ${vibe} vibe in the GeoCities AI platform.
@@ -86,10 +128,14 @@ Write it as an immersive description that makes people feel like they're tuning 
     const response = await result.response;
     const radioDescription = response.text();
 
+    // Save to cache
+    await saveAIGeneration(cityId, 'radio', radioDescription);
+
     res.json({
       cityId,
       radioDescription,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      cached: false
     });
   } catch (error) {
     console.error('Error generating radio station:', error);
