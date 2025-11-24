@@ -125,7 +125,7 @@ function City() {
 
       <div className="city-features">
         <section className="public-square">
-          <h3>📢 Public Square</h3>
+          <h3>Public Square</h3>
           <button 
             onClick={generatePublicSquare} 
             disabled={publicSquareLoading}
@@ -151,7 +151,7 @@ function City() {
         </section>
 
         <section className="radio">
-          <h3>📻 Radio Station</h3>
+          <h3>Radio Station</h3>
           <button 
             onClick={generateRadio} 
             disabled={radioLoading}
@@ -179,7 +179,7 @@ function City() {
         </section>
 
         <section className="newsletter">
-          <h3>📰 Newsletter</h3>
+          <h3>Newsletter</h3>
           <button 
             onClick={generateNewsletter} 
             disabled={newsletterLoading}
