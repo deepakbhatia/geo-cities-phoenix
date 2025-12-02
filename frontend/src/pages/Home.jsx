@@ -1,28 +1,28 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SearchProvider, useSearch } from '../contexts/SearchContext';
+import SearchBar from '../components/SearchBar';
+import FilterBar from '../components/FilterBar';
 
-function Home() {
+// Helper function to highlight matching text
+function highlightMatch(text, query) {
+  if (!query) return text;
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, i) => 
+    regex.test(part) ? <mark key={i}>{part}</mark> : part
+  );
+}
+
+function HomeContent() {
   const navigate = useNavigate();
-  const [cities, setCities] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { filteredCities, searchQuery } = useSearch();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', theme: '', vibe: '' });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchCities();
-  }, []);
-
-  const fetchCities = () => {
-    fetch('/api/cities')
-      .then(res => res.json())
-      .then(data => {
-        setCities(data);
-        setLoading(false);
-      })
-      .catch(err => console.error(err));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,15 +37,16 @@ function Home() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to create city');
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to create city');
       }
 
       const newCity = await res.json();
-      setCities([...cities, newCity]);
       setFormData({ name: '', theme: '', vibe: '' });
       setShowForm(false);
-      // Navigate to the new city
       navigate(`/city/${newCity.id}`);
+      // Reload page to refresh city list
+      window.location.reload();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,8 +57,6 @@ function Home() {
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-
-  if (loading) return <div className="loading">Loading cities...</div>;
 
   return (
     <div className="home">
@@ -120,21 +119,34 @@ function Home() {
         </div>
       )}
 
-      {cities.length === 0 && !showForm ? (
+      <div className="search-section">
+        <SearchBar />
+        <FilterBar />
+      </div>
+
+      {filteredCities.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 'var(--space-12)' }}>
-          <div className="empty-state-icon">🌐</div>
-          <p className="empty-state-message">No cities yet!</p>
-          <p className="empty-state-hint">Click "Create New City" to build your first neighbourhood.</p>
+          <div className="empty-state-icon">🔍</div>
+          <p className="empty-state-message">
+            {searchQuery 
+              ? `No cities found matching "${searchQuery}"`
+              : 'No cities yet!'}
+          </p>
+          <p className="empty-state-hint">
+            {searchQuery 
+              ? 'Try a different search term or clear filters'
+              : 'Click "Create New City" to build your first neighbourhood.'}
+          </p>
         </div>
       ) : (
         <div className="city-grid">
-          {cities.map(city => (
+          {filteredCities.map(city => (
             <Link key={city.id} to={`/city/${city.id}`} className="city-card">
               <div className="city-icon">🌆</div>
-              <h3>{city.name}</h3>
+              <h3>{highlightMatch(city.name, searchQuery)}</h3>
               <div className="city-details">
-                <p className="theme">🎨 {city.theme}</p>
-                <p className="vibe">✨ {city.vibe}</p>
+                <p className="theme">🎨 {highlightMatch(city.theme, searchQuery)}</p>
+                <p className="vibe">✨ {highlightMatch(city.vibe, searchQuery)}</p>
               </div>
               <div className="city-stats">
                 <span className="stat">📄 {city.pages.length} pages</span>
@@ -144,6 +156,32 @@ function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+function Home() {
+  const [cities, setCities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/cities')
+      .then(res => res.json())
+      .then(data => {
+        setCities(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching cities:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="loading">Loading cities...</div>;
+
+  return (
+    <SearchProvider cities={cities}>
+      <HomeContent />
+    </SearchProvider>
   );
 }
 
