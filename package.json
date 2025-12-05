@@ -6,8 +6,15 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "build": "cd frontend && npm run build"
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../functions && npm install",
+    "build": "cd frontend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "deploy": "npm run build:frontend && firebase deploy",
+    "deploy:hosting": "npm run build:frontend && firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:firestore": "firebase deploy --only firestore",
+    "emulate": "firebase emulators:start",
+    "logs": "firebase functions:log"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
