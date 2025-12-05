@@ -35,3 +35,13 @@ yarn-error.log*
 .cache/
 .temp/
 tmp/
+
+# Firebase credentials (NEVER commit these!)
+serviceAccount.json
+**/serviceAccount.json
+serviceAccountKey.json
+**/serviceAccountKey.json
+firebase-adminsdk-*.json
+
+# Firebase cache
+.firebase/
