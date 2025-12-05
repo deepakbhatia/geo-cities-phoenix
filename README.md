@@ -1,6 +1,11 @@
-# GeoCities AI 🌆✨
+# 🎃 GeoCities AI — Bringing the Old Web Back
 
-A modern resurrection of GeoCities for the AI content age. Create themed "cities" (neighborhoods) and populate them exclusively with AI-generated content featuring public squares, radio stations, and newsletters.
+## Remembering the Old Internet
+
+If you were around for the early web, you probably remember GeoCities—bright colors, flashing GIFs, pages made by regular people, and a kind of chaotic creativity you don’t really see today.  
+GeoCities AI is basically that… but updated with modern tools. It’s a place where whole “cities” of user-made pages grow, and AI helps keep them active and interesting.
+
+Every city gets an AI **editor** that writes simple news updates, an AI **events** helper that posts what’s happening, and even a basic AI **radio** that matches the city’s vibe. It uses what people create to shape what the AI generates, so each city feels unique.
 
 ## 🎨 Features
 
@@ -9,33 +14,65 @@ A modern resurrection of GeoCities for the AI content age. Create themed "cities
 - **Radio Station**: Generative soundtracks tuned to each city's atmosphere
 - **Newsletter**: AI journalist covering new pages and trends
 - **Nostalgic UI**: Retro GeoCities aesthetic with modern UX
+---
 
-## 🛠️ Tech Stack
+## How We Built It
+
+We used **Kiro** to help build the whole thing quickly and keep everything organized.
+
+### 📘 Clear specs
+We wrote straightforward specs: the MVP, Firestore setup, search, page creation, and deployment. Kiro followed these to build features consistently.
+
+### 🔧 Useful hooks
+We added auto-commit hooks and small safety tools so we wouldn’t accidentally push secrets. They kept everything tidy and smooth.
+
+### 🎯 Project guidance
+We gave Kiro all the project context and standards so every interaction stayed aligned with the theme: simple, nostalgic, and easy to use.
+
+### 💬 Vibe coding
+A lot of work happened through natural back-and-forth conversations like:
+
+- “Make the newsletter look more like a newspaper.”
+- “Add automatic AI content for cities.”
+
+Kiro handled these fast and accurately.
+
+---
+
+## What’s Inside
 
 ### Frontend
-- React 18
-- React Router 6
-- Vite 5
-- CSS (custom retro styling)
+React + Vite, styled to feel like old GeoCities—bright, simple, and a bit chaotic on purpose—but with modern behavior under the hood (responsive layout, loading states, and smooth animations).
 
 ### Backend
-- Node.js
-- Express 4
-- Google Generative AI (Gemini)
-- PostgreSQL (planned, currently in-memory)
+- Express API running on Firebase Cloud Functions  
+- Firestore stores everything  
+- Google Gemini generates the city content
 
-## 📋 Prerequisites
+The AI doesn’t just output random text — it reads your pages and generates content that matches your city’s theme.
 
-- Node.js 18+ and npm
-- Google Gemini API key ([Get one here](https://makersuite.google.com/app/apikey))
+### Cities that evolve
+If people create a lot of food-related pages, the AI may start writing food-themed news.  
+If someone posts spooky stories, the event system may start “ghost tour” events.  
+The city evolves based on what users add.
+
+### Two ways to write
+You can write your own pages manually or ask the AI for help.  
+If the AI generates content, the system tags it clearly so people know.
+
+---
+
+## Running it locally
+
+```bash
 
 ## 🚀 Installation
 
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
-cd geocities-ai
+git clone https://github.com/deepakbhatia/geo-cities-phoenix
+cd geo-cities-phoenix
 ```
 
 ### 2. Install dependencies
@@ -61,24 +98,15 @@ Create a `.env` file in the `backend` directory:
 ```bash
 cd backend
 cp .env.example .env
-```
 
-Edit `backend/.env` and add your Gemini API key:
-
-```env
 GEMINI_API_KEY=your_actual_gemini_api_key_here
 PORT=3000
+echo "FIREBASE_PROJECT_ID=your_project" >> backend/.env
+echo "FIREBASE_SERVICE_ACCOUNT={...}" >> backend/.env
+
 ```
 
 ## 🎮 Development
-
-### Start both servers concurrently
-
-From the project root:
-
-```bash
-npm run dev
-```
 
 This starts:
 - Backend API server on `http://localhost:3000`
@@ -96,84 +124,19 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-## 🏗️ Project Structure
-
-```
-geocities-ai/
-├── frontend/              # React + Vite frontend
-│   ├── src/
-│   │   ├── pages/        # Route components (Home, City)
-│   │   ├── App.jsx       # Main app with routing
-│   │   ├── App.css       # Retro styling
-│   │   └── main.jsx      # Entry point
-│   ├── index.html
-│   └── package.json
-├── backend/              # Express API server
-│   ├── controllers/      # Business logic
-│   │   ├── cityController.js
-│   │   ├── contentController.js
-│   │   └── aiController.js
-│   ├── routes/           # API endpoints
-│   ├── server.js         # Entry point
-│   ├── .env.example      # Environment template
-│   └── package.json
-├── .kiro/                # Kiro workspace config
-│   └── specs/            # Feature specifications
-├── package.json          # Root package with dev scripts
-└── README.md
-```
-
-## 🔌 API Endpoints
-
-### Cities
-- `GET /api/cities` - List all cities
-- `GET /api/cities/:id` - Get city by ID
-- `POST /api/cities` - Create new city
-
-### Content
-- `GET /api/content/:cityId` - Get content for a city
-- `POST /api/content` - Create new content
-
-### AI Generation
-- `POST /api/ai/public-square/:cityId` - Generate public square summary
-- `POST /api/ai/newsletter/:cityId` - Generate city newsletter
-- `POST /api/ai/radio/:cityId` - Generate radio station description
-
-## 🎯 Usage
-
-1. Open `http://localhost:5173` in your browser
-2. Browse the available cities on the home page
-3. Click on a city to explore its details
-4. Generate AI content:
-   - Click "Generate" in the Public Square section
-   - Click "Tune In" for the Radio Station
-   - Click "Generate Newsletter" for the city newsletter
-
-## 🔑 Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GEMINI_API_KEY` | Google Gemini API key for AI generation | Yes |
-| `PORT` | Backend server port (default: 3000) | No |
-| `DATABASE_URL` | PostgreSQL connection string (future) | No |
-
-## 🚧 Future Enhancements
-
-- User authentication and accounts
-- Database persistence (PostgreSQL)
-- User-created cities and content
-- Image generation for city visuals
-- Real-time AI chat in public squares
-- Community features (comments, reactions)
-
-## 📝 License
-
-MIT
-
-## 🤝 Contributing
-
-This is an MVP project. Contributions welcome!
 
 ---
 
-Built with ❤️ and AI
+## How to try it
+
+1. Create a new city with a theme (horror, retro, sci-fi, etc.).  
+2. Watch the AI generate daily updates, events, and “radio” content.  
+3. Add your own pages and see how the AI reacts.  
+4. Use search to explore everything.  
+5. Watch the city slowly build its own personality.
+
+**Live version:** https://gen-cities.web.app
+
+---
+
+*Built for Kiroween 2025*
