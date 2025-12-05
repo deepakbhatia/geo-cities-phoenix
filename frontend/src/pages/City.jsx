@@ -3,6 +3,22 @@ import { useParams, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageList from '../components/PageList';
 
+// Simple markdown-to-HTML converter for AI-generated content
+const formatAIContent = (text) => {
+  if (!text) return '';
+  
+  return text
+    // Bold: **text** or __text__
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<strong>$1</strong>')
+    // Italic: *text* or _text_
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/_(.+?)_/g, '<em>$1</em>')
+    // Line breaks
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br/>');
+};
+
 function City() {
   const { id } = useParams();
   const [city, setCity] = useState(null);
@@ -60,6 +76,7 @@ function City() {
     }
   }, [city, id]);
 
+  // Generate functions
   const generatePublicSquare = async () => {
     try {
       setPublicSquareError('');
@@ -94,8 +111,7 @@ function City() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cityName: city.name,
-          theme: city.theme,
-          pages: city.pages
+          theme: city.theme
         })
       });
       if (!res.ok) {
@@ -134,6 +150,44 @@ function City() {
     }
   };
 
+  // Load cached AI content when city loads, auto-generate if missing
+  useEffect(() => {
+    if (city) {
+      fetch(`/api/ai/cached/${id}`)
+        .then(res => res.json())
+        .then(data => {
+          // Set cached content if available
+          if (data.publicSquare) {
+            setPublicSquare(data.publicSquare);
+          } else {
+            // Auto-generate if not cached
+            generatePublicSquare();
+          }
+          
+          if (data.newsletter) {
+            setNewsletter(data.newsletter);
+          } else {
+            // Auto-generate if not cached
+            generateNewsletter();
+          }
+          
+          if (data.radio) {
+            setRadio(data.radio);
+          } else {
+            // Auto-generate if not cached
+            generateRadio();
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching cached AI content:', err);
+          // Try to generate on error
+          generatePublicSquare();
+          generateNewsletter();
+          generateRadio();
+        });
+    }
+  }, [city, id, generatePublicSquare, generateNewsletter, generateRadio]);
+
   if (loading) return <div className="loading">Loading city...</div>;
   if (error) return <div className="loading">{error}</div>;
 
@@ -146,27 +200,30 @@ function City() {
 
       <div className="city-features">
         <section className="public-square">
-          <h3>Public Square</h3>
+          <h3>Daily Events</h3>
           <button 
             onClick={generatePublicSquare} 
             disabled={publicSquareLoading}
             className={publicSquareError ? 'error-button' : ''}
           >
-            {publicSquareLoading ? 'Generating...' : publicSquareError ? '🔄 Try Again' : publicSquare ? '🔄 Generate New' : '✨ Generate Update'}
+            {publicSquareLoading ? 'Generating...' : publicSquareError ? '🔄 Try Again' : publicSquare ? '🔄 Generate New' : '✨ See Today\'s Events'}
           </button>
-          {publicSquareLoading && <LoadingSpinner message="Consulting the AI town crier..." />}
+          {publicSquareLoading && <LoadingSpinner message="Checking the event calendar..." />}
           {publicSquareError && <div className="error-message">❌ {publicSquareError}</div>}
           {!publicSquare && !publicSquareLoading && !publicSquareError && (
             <div className="empty-state">
               <div className="empty-state-icon">🏛️</div>
-              <p className="empty-state-message">The town crier is waiting!</p>
-              <p className="empty-state-hint">Click above to hear what's happening in {city.name}.</p>
+              <p className="empty-state-message">No events scheduled yet!</p>
+              <p className="empty-state-hint">Click above to see what's happening today in {city.name}.</p>
             </div>
           )}
           {publicSquare && !publicSquareLoading && (
             <div className="ai-content public-square-content">
-              <div className="announcement-text">{publicSquare}</div>
-              <div className="timestamp">📅 Just now</div>
+              <div 
+                className="announcement-text" 
+                dangerouslySetInnerHTML={{ __html: formatAIContent(publicSquare) }}
+              />
+              <div className="timestamp">📅 Today</div>
             </div>
           )}
         </section>
@@ -193,37 +250,43 @@ function City() {
             <div className="ai-content radio-content">
               <div className="radio-display">
                 <div className="now-playing">🎵 NOW PLAYING</div>
-                <div className="radio-text">{radio}</div>
+                <div 
+                  className="radio-text" 
+                  dangerouslySetInnerHTML={{ __html: formatAIContent(radio) }}
+                />
               </div>
             </div>
           )}
         </section>
 
         <section className="newsletter">
-          <h3>Newsletter</h3>
+          <h3>Top News</h3>
           <button 
             onClick={generateNewsletter} 
             disabled={newsletterLoading}
             className={newsletterError ? 'error-button' : ''}
           >
-            {newsletterLoading ? 'Generating...' : newsletterError ? '🔄 Try Again' : newsletter ? '🔄 Generate New Issue' : '✨ Generate Issue'}
+            {newsletterLoading ? 'Generating...' : newsletterError ? '🔄 Try Again' : newsletter ? '🔄 Get Latest News' : '✨ Read Today\'s News'}
           </button>
-          {newsletterLoading && <LoadingSpinner message="Printing the newsletter..." />}
+          {newsletterLoading && <LoadingSpinner message="Gathering today's top stories..." />}
           {newsletterError && <div className="error-message">❌ {newsletterError}</div>}
           {!newsletter && !newsletterLoading && !newsletterError && (
             <div className="empty-state">
               <div className="empty-state-icon">📰</div>
               <p className="empty-state-message">No news yet!</p>
-              <p className="empty-state-hint">Generate the first issue to see what's trending in {city.name}.</p>
+              <p className="empty-state-hint">Read today's top stories from {city.name}.</p>
             </div>
           )}
           {newsletter && !newsletterLoading && (
             <div className="ai-content newsletter-content">
               <div className="newsletter-header">
-                <div className="masthead">📰 THE {city.name.toUpperCase()} CHRONICLE</div>
-                <div className="issue-info">Issue #1 • {new Date().toLocaleDateString()}</div>
+                <div className="masthead">📰 {city.name.toUpperCase()} DAILY NEWS</div>
+                <div className="issue-info">Today • {new Date().toLocaleDateString()}</div>
               </div>
-              <div className="newsletter-body">{newsletter}</div>
+              <div 
+                className="newsletter-body" 
+                dangerouslySetInnerHTML={{ __html: `<p>${formatAIContent(newsletter)}</p>` }}
+              />
             </div>
           )}
         </section>

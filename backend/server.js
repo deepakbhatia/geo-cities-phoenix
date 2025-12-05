@@ -1,12 +1,25 @@
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get current directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables FIRST before any other imports
+dotenv.config({ path: join(__dirname, '.env') });
+
+// Debug: Check if env vars are loaded
+console.log('Environment check:');
+console.log('- GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? '✓ Loaded' : '✗ Missing');
+console.log('- FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✓ Loaded' : '✗ Missing');
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { initializeFirebase } from './config/firebase.js';
 import cityRoutes from './routes/cities.js';
 import contentRoutes from './routes/content.js';
 import aiRoutes from './routes/ai.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

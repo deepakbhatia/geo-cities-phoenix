@@ -56,6 +56,16 @@ function PageDetail() {
     return types[type] || type;
   };
 
+  const getContentTagBadge = (tag) => {
+    const tags = {
+      'ai-generated': { icon: '🤖', label: 'AI Generated', class: 'tag-ai', title: 'Content created by AI' },
+      'user-written': { icon: '✍️', label: 'User Written', class: 'tag-user', title: 'Content written by user' },
+      'detected-ai': { icon: '🔍', label: 'Detected AI', class: 'tag-detected', title: 'User submitted but detected as AI-generated' },
+      'pending': { icon: '⏳', label: 'Analyzing...', class: 'tag-pending', title: 'AI detection in progress' }
+    };
+    return tags[tag] || tags['ai-generated'];
+  };
+
   if (loading) return <div className="loading">Loading page...</div>;
   if (error) return <div className="loading">{error}</div>;
 
@@ -67,12 +77,25 @@ function PageDetail() {
 
       <div className="page-detail">
         <div className="page-header">
-          <div className="page-type-badge">{getPageTypeLabel(page.type)}</div>
+          <div className="page-badges">
+            <div className="page-type-badge">{getPageTypeLabel(page.type)}</div>
+            {page.contentTag && (() => {
+              const tagInfo = getContentTagBadge(page.contentTag);
+              return (
+                <div className={`content-tag-badge ${tagInfo.class}`} title={tagInfo.title}>
+                  {tagInfo.icon} {tagInfo.label}
+                </div>
+              );
+            })()}
+          </div>
           <h1>{page.title}</h1>
           <div className="page-meta">
             <span>📅 Created {new Date(page.createdAt).toLocaleDateString()}</span>
             {page.updatedAt !== page.createdAt && (
               <span> • Updated {new Date(page.updatedAt).toLocaleDateString()}</span>
+            )}
+            {page.aiConfidenceScore && (
+              <span> • AI Confidence: {Math.round(page.aiConfidenceScore * 100)}%</span>
             )}
           </div>
         </div>

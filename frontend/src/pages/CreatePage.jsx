@@ -5,10 +5,12 @@ import LoadingSpinner from '../components/LoadingSpinner';
 function CreatePage() {
   const { cityId } = useParams();
   const navigate = useNavigate();
+  const [contentMode, setContentMode] = useState('ai-generate');
   const [formData, setFormData] = useState({
     title: '',
     type: 'personal',
-    prompt: ''
+    prompt: '',
+    content: ''
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -30,10 +32,22 @@ function CreatePage() {
     setCreating(true);
 
     try {
+      const payload = {
+        title: formData.title,
+        type: formData.type,
+        contentMode
+      };
+
+      if (contentMode === 'ai-generate') {
+        payload.prompt = formData.prompt;
+      } else {
+        payload.content = formData.content;
+      }
+
       const res = await fetch(`/api/content/${cityId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -53,6 +67,11 @@ function CreatePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleModeChange = (mode) => {
+    setContentMode(mode);
+    setError('');
+  };
+
   return (
     <div className="create-page-container">
       <Link to={`/city/${cityId}`} className="back-link">
@@ -61,6 +80,33 @@ function CreatePage() {
 
       <div className="create-page">
         <h2>✨ Create New Page</h2>
+        
+        {/* Content Mode Selection */}
+        <div className="content-mode-selector">
+          <h3>How would you like to create your page?</h3>
+          <div className="mode-options">
+            <button
+              type="button"
+              className={`mode-option ${contentMode === 'ai-generate' ? 'active' : ''}`}
+              onClick={() => handleModeChange('ai-generate')}
+              disabled={creating}
+            >
+              <span className="mode-icon">🤖</span>
+              <span className="mode-title">AI Generate</span>
+              <span className="mode-desc">Describe what you want, AI creates it</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-option ${contentMode === 'write-myself' ? 'active' : ''}`}
+              onClick={() => handleModeChange('write-myself')}
+              disabled={creating}
+            >
+              <span className="mode-icon">✍️</span>
+              <span className="mode-title">Write Myself</span>
+              <span className="mode-desc">Write your own content manually</span>
+            </button>
+          </div>
+        </div>
         
         <form onSubmit={handleSubmit} className="page-form">
           <div className="form-group">
@@ -98,27 +144,57 @@ function CreatePage() {
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="prompt">What should this page be about?</label>
-            <textarea
-              id="prompt"
-              name="prompt"
-              value={formData.prompt}
-              onChange={handleChange}
-              placeholder="Describe what you want on this page. The AI will generate creative content based on your description and the city's theme. Be specific and creative!"
-              required
-              minLength={10}
-              maxLength={500}
-              rows={6}
-              disabled={creating}
-            />
-            <span className="char-count">{formData.prompt.length}/500</span>
-          </div>
+          {contentMode === 'ai-generate' ? (
+            <div className="form-group">
+              <label htmlFor="prompt">What should this page be about? *</label>
+              <textarea
+                id="prompt"
+                name="prompt"
+                value={formData.prompt}
+                onChange={handleChange}
+                placeholder="Example: 'A personal homepage about my love for retro gaming, featuring my favorite 90s games and memories from playing them as a kid.'"
+                required
+                minLength={10}
+                maxLength={500}
+                rows={6}
+                disabled={creating}
+              />
+              <span className="char-count">{formData.prompt.length}/500</span>
+              <p className="field-hint">
+                💡 Be specific! The AI will create content based on your description and the city's theme.
+              </p>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="content">Page Content *</label>
+              <textarea
+                id="content"
+                name="content"
+                value={formData.content}
+                onChange={handleChange}
+                placeholder="Write your page content here. You can use multiple paragraphs. Be creative and authentic!"
+                required
+                minLength={50}
+                maxLength={5000}
+                rows={12}
+                disabled={creating}
+              />
+              <span className="char-count">{formData.content.length}/5000</span>
+              <p className="field-hint">
+                ℹ️ Your content will be analyzed to detect if it's AI-generated and tagged accordingly.
+              </p>
+            </div>
+          )}
 
           {error && <div className="error-message">❌ {error}</div>}
 
           {creating && (
-            <LoadingSpinner message="🎨 AI is creating your page... (5-10 seconds)" />
+            <LoadingSpinner 
+              message={contentMode === 'ai-generate' 
+                ? "🎨 AI is creating your page... (5-10 seconds)" 
+                : "💾 Saving your page..."
+              } 
+            />
           )}
 
           <button type="submit" disabled={creating} className="submit-btn">

@@ -55,21 +55,16 @@ export const getCities = async (req, res) => {
       .get();
     
     const cities = [];
-    for (const doc of snapshot.docs) {
+    snapshot.forEach(doc => {
       const data = doc.data();
-      
-      // Get content count from subcollection
-      const contentSnapshot = await doc.ref.collection('content').count().get();
-      const contentCount = contentSnapshot.data().count;
-      
       cities.push({
         id: doc.id,
         name: data.name,
         theme: data.theme,
         vibe: data.vibe,
-        pages: new Array(contentCount).fill(null) // Placeholder for compatibility
+        pages: [] // Don't count pages for list view - improves performance
       });
-    }
+    });
     
     res.json(cities);
   } catch (error) {
@@ -99,16 +94,12 @@ export const getCity = async (req, res) => {
     
     const data = doc.data();
     
-    // Get content count
-    const contentSnapshot = await doc.ref.collection('content').count().get();
-    const contentCount = contentSnapshot.data().count;
-    
     res.json({
       id: doc.id,
       name: data.name,
       theme: data.theme,
       vibe: data.vibe,
-      pages: new Array(contentCount).fill(null) // Placeholder for compatibility
+      pages: [] // Don't count pages - improves performance
     });
   } catch (error) {
     console.error('Error fetching city:', error);

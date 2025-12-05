@@ -1,11 +1,54 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getCachedAIGeneration, saveAIGeneration } from '../utils/aiCache.js';
 
-// Initialize GoogleGenerativeAI with API key from environment
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Lazy initialization - don't check env vars at import time
+let genAI = null;
+let model = null;
+let initialized = false;
 
-// Configure gemini-pro model for text generation
-const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+function getModel() {
+  if (!initialized) {
+    // Verify API key is loaded
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY environment variable is not set');
+      throw new Error('GEMINI_API_KEY is required');
+    }
+
+    console.log('✅ Gemini API Key loaded:', process.env.GEMINI_API_KEY.substring(0, 20) + '...');
+
+    // Initialize GoogleGenerativeAI with API key from environment
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    // Configure gemini-1.5-flash model for text generation (newer, faster model)
+    model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+    
+    initialized = true;
+  }
+  
+  return model;
+}
+
+// Get cached AI content for a city
+export const getCachedContent = async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    
+    const [publicSquare, newsletter, radio] = await Promise.all([
+      getCachedAIGeneration(cityId, 'publicSquare'),
+      getCachedAIGeneration(cityId, 'newsletter'),
+      getCachedAIGeneration(cityId, 'radio')
+    ]);
+    
+    res.json({
+      publicSquare,
+      newsletter,
+      radio
+    });
+  } catch (error) {
+    console.error('Error fetching cached content:', error);
+    res.status(500).json({ error: 'Failed to fetch cached content' });
+  }
+};
 
 // Generate public square announcement
 export const generatePublicSquare = async (req, res) => {
@@ -24,13 +67,47 @@ export const generatePublicSquare = async (req, res) => {
       });
     }
 
-    // Build prompt for 2-3 sentence engaging announcement
-    const prompt = `You are the town crier for ${cityName}, a ${theme}-themed city in the GeoCities AI platform. 
-Recent activity: ${recentActivity || 'New visitors exploring the city'}
+    // Get actual pages from Firestore to analyze
+    const { getFirestore } = await import('../config/firebase.js');
+    const db = getFirestore();
+    const pagesSnapshot = await db.collection('pages')
+      .where('cityId', '==', cityId)
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+    
+    const pages = pagesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        title: data.title,
+        type: data.type,
+        excerpt: data.content.substring(0, 150)
+      };
+    });
 
-Write a brief, engaging 2-3 sentence announcement for the public square that captures the energy and excitement of what's happening in the city. Make it feel like a living, breathing community. Be creative and enthusiastic!`;
+    // Build prompt based on actual content
+    let prompt;
+    if (pages.length === 0) {
+      prompt = `You are the events coordinator for ${cityName}, a ${theme}-themed city in the GeoCities AI platform. 
 
-    const result = await model.generateContent(prompt);
+The city has just been founded! Write a brief 2-3 sentence announcement about today's "grand opening" event, welcoming the first residents and describing what exciting activities and opportunities await in this new ${theme}-themed neighborhood.`;
+    } else {
+      const pagesSummary = pages.map(p => `- "${p.title}" (${p.type})`).join('\n');
+      prompt = `You are the events coordinator for ${cityName}, a ${theme}-themed city in the GeoCities AI platform. 
+
+Recent pages created:
+${pagesSummary}
+
+Write a brief 2-3 sentence announcement about today's events and happenings in the public square. This could include:
+- Community gatherings or meetups related to recent content
+- Celebrations of new pages or milestones
+- Daily activities or workshops happening in the city
+- Information about what's trending today
+
+Make it feel like a real daily event announcement. Reference specific pages if relevant. Be creative and enthusiastic!`;
+    }
+
+    const result = await getModel().generateContent(prompt);
     const response = await result.response;
     const summary = response.text();
 
@@ -53,7 +130,7 @@ Write a brief, engaging 2-3 sentence announcement for the public square that cap
 export const generateNewsletter = async (req, res) => {
   try {
     const { cityId } = req.params;
-    const { cityName, theme, pages } = req.body;
+    const { cityName, theme } = req.body;
 
     // Check for cached content first
     const cached = await getCachedAIGeneration(cityId, 'newsletter');
@@ -66,19 +143,58 @@ export const generateNewsletter = async (req, res) => {
       });
     }
 
-    const pageCount = pages?.length || 0;
+    // Get actual pages from Firestore to analyze
+    const { getFirestore } = await import('../config/firebase.js');
+    const db = getFirestore();
+    const pagesSnapshot = await db.collection('pages')
+      .where('cityId', '==', cityId)
+      .orderBy('createdAt', 'desc')
+      .limit(20)
+      .get();
+    
+    const pages = pagesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        title: data.title,
+        type: data.type,
+        content: data.content.substring(0, 300),
+        createdAt: data.createdAt
+      };
+    });
 
-    // Build prompt for 3-4 paragraph newsletter covering highlights, trends, and unique characteristics
-    const prompt = `You are an AI journalist writing the weekly newsletter for ${cityName}, a ${theme}-themed city in the GeoCities AI platform with ${pageCount} pages of content.
+    const pageCount = pages.length;
 
-Write a creative 3-4 paragraph newsletter that covers:
-1. Highlights of recent activity and new content
-2. Emerging trends in the city's culture
-3. Unique characteristics that make this city special
+    // Build prompt based on actual content
+    let prompt;
+    if (pageCount === 0) {
+      prompt = `You are an AI journalist writing today's top news for ${cityName}, a ${theme}-themed city in the GeoCities AI platform.
 
-Make it engaging, informative, and capture the spirit of this ${theme}-themed community. Write in a journalistic but playful style that fits the nostalgic GeoCities vibe.`;
+This is a brand new city with no pages yet! Write 3-4 short news stories (in paragraph form) covering:
+1. **BREAKING:** The grand opening of ${cityName}
+2. **COMMUNITY:** What kind of residents and content this ${theme}-themed neighborhood hopes to attract
+3. **FORECAST:** Predictions for what exciting developments might happen soon
 
-    const result = await model.generateContent(prompt);
+Write in a news-style format with a playful GeoCities twist. Make each story feel like a real news headline come to life!`;
+    } else {
+      const pagesSummary = pages.map(p => 
+        `- **${p.title}** (${p.type}): ${p.content.substring(0, 100)}...`
+      ).join('\n');
+      
+      prompt = `You are an AI journalist writing today's top news stories for ${cityName}, a ${theme}-themed city in the GeoCities AI platform with ${pageCount} pages of content.
+
+Recent pages in the city:
+${pagesSummary}
+
+Write 3-4 short news stories (in paragraph form) covering today's top happenings:
+1. **HEADLINE STORY:** Feature the most interesting or recent page with specific details
+2. **TRENDING:** What's popular or emerging as a trend in the community
+3. **COMMUNITY SPOTLIGHT:** Highlight another notable page or creator
+4. **WHAT'S NEXT:** Tease what might be coming or what the city needs
+
+Write in a news-style format. Reference specific page titles and content. Make it feel like real daily news coverage with a playful GeoCities vibe!`;
+    }
+
+    const result = await getModel().generateContent(prompt);
     const response = await result.response;
     const newsletter = response.text();
 
@@ -124,7 +240,7 @@ Describe the radio station in a creative, atmospheric way. Include:
 
 Write it as an immersive description that makes people feel like they're tuning into this unique station. Be evocative and capture the essence of the ${vibe} atmosphere.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await getModel().generateContent(prompt);
     const response = await result.response;
     const radioDescription = response.text();
 
@@ -142,9 +258,6 @@ Write it as an immersive description that makes people feel like they're tuning 
     res.status(500).json({ error: 'Failed to generate radio station description' });
   }
 };
-
-export { model };
-
 
 // Generate page content
 export const generatePageContent = async ({ cityId, title, type, prompt }) => {
@@ -180,7 +293,7 @@ Create engaging, creative content for this page that:
 
 Write the content now:`;
 
-    const result = await model.generateContent(aiPrompt);
+    const result = await getModel().generateContent(aiPrompt);
     const response = await result.response;
     const content = response.text();
     
@@ -188,5 +301,67 @@ Write the content now:`;
   } catch (error) {
     console.error('Error generating page content:', error);
     throw error;
+  }
+};
+
+
+// Detect if content is AI-generated
+export const detectAIContent = async (content) => {
+  try {
+    const prompt = `Analyze the following text and determine if it was likely generated by an AI language model.
+
+Consider these indicators:
+1. Overly formal or structured language
+2. Lack of personal anecdotes or specific details
+3. Generic or templated phrasing
+4. Perfect grammar and punctuation
+5. Balanced, neutral tone without strong opinions
+6. Repetitive sentence structures
+7. Lack of colloquialisms or informal language
+8. Overly comprehensive or encyclopedic style
+
+Text to analyze:
+"""
+${content}
+"""
+
+Respond with ONLY a JSON object in this exact format (no other text):
+{
+  "isAiGenerated": true,
+  "confidence": 0.85,
+  "reasoning": "brief explanation"
+}`;
+
+    const result = await getModel().generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Parse JSON response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Invalid response format from AI detection');
+    }
+    
+    const analysis = JSON.parse(jsonMatch[0]);
+    
+    // Determine tag based on confidence threshold
+    const contentTag = analysis.confidence > 0.7 ? 'detected-ai' : 'user-written';
+    
+    console.log(`AI Detection: ${contentTag} (confidence: ${analysis.confidence})`);
+    console.log(`Reasoning: ${analysis.reasoning}`);
+    
+    return {
+      contentTag,
+      aiConfidenceScore: analysis.confidence,
+      reasoning: analysis.reasoning
+    };
+  } catch (error) {
+    console.error('Error detecting AI content:', error);
+    // Default to user-written on error
+    return {
+      contentTag: 'user-written',
+      aiConfidenceScore: null,
+      reasoning: 'Detection failed'
+    };
   }
 };

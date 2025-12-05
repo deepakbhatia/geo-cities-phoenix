@@ -2,9 +2,8 @@
   "name": "Auto-commit completed tasks",
   "description": "Automatically commits changes to git when a task is marked as complete",
   "trigger": {
-    "type": "task_completed",
-    "specPath": ".kiro/specs/geocities-ai-mvp/tasks.md"
+    "type": "task_completed"
   },
   "enabled": true,
-  "prompt": "A task has just been completed in the GeoCities AI project.\n\nTask: {{task_name}}\n\nPlease:\n1. Stage all changes related to this task using `git add .`\n2. Create a commit with a descriptive message that includes the task name and what was accomplished\n3. Use the format: \"feat: [task number] - [brief description]\"\n\nExample: \"feat: 3.1 - Implement city controller with in-memory storage\"\n\nMake sure the commit message is clear and follows conventional commit format."
+  "prompt": "A task has just been completed in the GeoCities AI project.\n\nTask: {{task_name}}\nSpec: {{spec_path}}\n\nPlease:\n1. Stage all changes related to this task using `git add .`\n2. Create a commit with a descriptive message that includes the task name and what was accomplished\n3. Use the format: \"feat: [brief description]\" or \"fix: [brief description]\" depending on the type of change\n\nExample: \"feat: implement AI content caching\" or \"fix: newsletter formatting issues\"\n\nMake sure the commit message is clear and follows conventional commit format."
 }

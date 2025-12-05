@@ -1,7 +1,26 @@
-import { generatePageContent } from './aiController.js';
+import { getFirestore, admin } from '../config/firebase.js';
+import { generatePageContent, detectAIContent } from './aiController.js';
 
-// In-memory storage for pages (will be replaced with Firestore)
-let pages = [];
+// Helper function to update page tag after async detection
+async function updatePageTag(cityId, pageId, result) {
+  try {
+    const db = getFirestore();
+    const pageRef = db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .doc(pageId);
+    
+    await pageRef.update({
+      contentTag: result.contentTag,
+      aiConfidenceScore: result.aiConfidenceScore,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+    
+    console.log(`Updated page ${pageId} tag to ${result.contentTag} (confidence: ${result.aiConfidenceScore})`);
+  } catch (error) {
+    console.error('Error updating page tag:', error);
+  }
+}
 
 // Helper function to generate slug
 function generateSlug(text) {
@@ -14,34 +33,78 @@ function generateSlug(text) {
 }
 
 // Get all pages for a city
-export const getPages = (req, res) => {
+export const getPages = async (req, res) => {
   try {
+    const db = getFirestore();
     const { cityId } = req.params;
-    const cityPages = pages.filter(p => p.cityId === cityId);
     
-    // Sort by creation date (newest first)
-    cityPages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Verify city exists
+    const cityDoc = await db.collection('cities').doc(cityId).get();
+    if (!cityDoc.exists) {
+      return res.status(404).json({ error: 'City not found' });
+    }
     
-    res.json(cityPages);
+    // Get pages
+    const snapshot = await db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+    
+    const pages = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      pages.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt.toDate().toISOString(),
+        updatedAt: data.updatedAt.toDate().toISOString()
+      });
+    });
+    
+    res.json(pages);
   } catch (error) {
     console.error('Error fetching pages:', error);
+    
+    if (error.code === 'permission-denied') {
+      return res.status(403).json({ error: 'Permission denied to access pages' });
+    }
+    
     res.status(500).json({ error: 'Failed to fetch pages' });
   }
 };
 
 // Get single page
-export const getPage = (req, res) => {
+export const getPage = async (req, res) => {
   try {
+    const db = getFirestore();
     const { cityId, pageId } = req.params;
-    const page = pages.find(p => p.id === pageId && p.cityId === cityId);
     
-    if (!page) {
+    const doc = await db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .doc(pageId)
+      .get();
+    
+    if (!doc.exists) {
       return res.status(404).json({ error: 'Page not found' });
     }
     
-    res.json(page);
+    const data = doc.data();
+    res.json({
+      id: doc.id,
+      ...data,
+      createdAt: data.createdAt.toDate().toISOString(),
+      updatedAt: data.updatedAt.toDate().toISOString()
+    });
   } catch (error) {
     console.error('Error fetching page:', error);
+    
+    if (error.code === 'permission-denied') {
+      return res.status(403).json({ error: 'Permission denied to access page' });
+    }
+    
     res.status(500).json({ error: 'Failed to fetch page' });
   }
 };
@@ -50,12 +113,12 @@ export const getPage = (req, res) => {
 export const createPage = async (req, res) => {
   try {
     const { cityId } = req.params;
-    const { title, type, prompt } = req.body;
+    const { title, type, contentMode, prompt, content } = req.body;
     
     // Validate input
-    if (!title || !type || !prompt) {
+    if (!title || !type || !contentMode) {
       return res.status(400).json({ 
-        error: 'Title, type, and prompt are required' 
+        error: 'Title, type, and content mode are required' 
       });
     }
     
@@ -65,56 +128,128 @@ export const createPage = async (req, res) => {
       });
     }
     
-    if (prompt.length < 10 || prompt.length > 500) {
+    // Validate based on content mode
+    if (contentMode === 'ai-generate') {
+      if (!prompt || prompt.length < 10 || prompt.length > 500) {
+        return res.status(400).json({ 
+          error: 'Prompt must be between 10 and 500 characters' 
+        });
+      }
+    } else if (contentMode === 'write-myself') {
+      if (!content || content.length < 50 || content.length > 5000) {
+        return res.status(400).json({ 
+          error: 'Content must be between 50 and 5000 characters' 
+        });
+      }
+    } else {
       return res.status(400).json({ 
-        error: 'Prompt must be between 10 and 500 characters' 
+        error: 'Invalid content mode. Must be "ai-generate" or "write-myself"' 
       });
+    }
+    
+    const db = getFirestore();
+    
+    // Verify city exists
+    const cityDoc = await db.collection('cities').doc(cityId).get();
+    if (!cityDoc.exists) {
+      return res.status(404).json({ error: 'City not found' });
     }
     
     // Check for duplicate title in this city
     const slug = generateSlug(title);
-    const duplicate = pages.find(p => 
-      p.cityId === cityId && p.titleSlug === slug
-    );
+    const duplicateCheck = await db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .where('titleSlug', '==', slug)
+      .limit(1)
+      .get();
     
-    if (duplicate) {
+    if (!duplicateCheck.empty) {
       return res.status(409).json({ 
         error: 'A page with this title already exists in this city' 
       });
     }
     
     // Check page limit (100 per city)
-    const cityPages = pages.filter(p => p.cityId === cityId);
-    if (cityPages.length >= 100) {
+    const pageCount = await db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .count()
+      .get();
+    
+    if (pageCount.data().count >= 100) {
       return res.status(400).json({ 
         error: 'This city has reached its page limit (100 pages)' 
       });
     }
     
-    // Generate content with AI
-    const content = await generatePageContent({
-      cityId,
-      title,
-      type,
-      prompt
-    });
+    let finalContent;
+    let contentTag;
+    let aiConfidenceScore = null;
+    let originalPrompt = null;
     
-    // Create page
-    const newPage = {
-      id: String(pages.length + 1),
+    if (contentMode === 'ai-generate') {
+      // Generate content with AI
+      finalContent = await generatePageContent({
+        cityId,
+        title,
+        type,
+        prompt
+      });
+      contentTag = 'ai-generated';
+      originalPrompt = prompt;
+    } else {
+      // Use user-written content
+      finalContent = content;
+      contentTag = 'pending'; // Will be updated after detection
+    }
+    
+    // Create page in Firestore
+    const pageRef = db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .doc();
+    
+    const now = admin.firestore.Timestamp.now();
+    
+    const pageData = {
+      id: pageRef.id,
       cityId,
       title,
       titleSlug: slug,
       type,
-      prompt,
-      content,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      contentMode,
+      contentTag,
+      aiConfidenceScore,
+      originalPrompt,
+      content: finalContent,
+      createdAt: now,
+      updatedAt: now
     };
     
-    pages.push(newPage);
+    await pageRef.set(pageData);
     
-    res.status(201).json(newPage);
+    // Run AI detection asynchronously for user-written content
+    if (contentMode === 'write-myself') {
+      detectAIContent(finalContent)
+        .then(result => {
+          updatePageTag(cityId, pageRef.id, result);
+        })
+        .catch(err => {
+          console.error('AI detection failed:', err);
+          // Default to user-written if detection fails
+          updatePageTag(cityId, pageRef.id, {
+            contentTag: 'user-written',
+            aiConfidenceScore: null
+          });
+        });
+    }
+    
+    res.status(201).json({
+      ...pageData,
+      createdAt: pageData.createdAt.toDate().toISOString(),
+      updatedAt: pageData.updatedAt.toDate().toISOString()
+    });
   } catch (error) {
     console.error('Error creating page:', error);
     res.status(500).json({ error: 'Failed to create page' });
@@ -124,64 +259,90 @@ export const createPage = async (req, res) => {
 // Update page
 export const updatePage = async (req, res) => {
   try {
+    const db = getFirestore();
     const { cityId, pageId } = req.params;
     const { title, prompt } = req.body;
     
-    const pageIndex = pages.findIndex(p => 
-      p.id === pageId && p.cityId === cityId
-    );
+    const pageRef = db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .doc(pageId);
     
-    if (pageIndex === -1) {
+    const doc = await pageRef.get();
+    if (!doc.exists) {
       return res.status(404).json({ error: 'Page not found' });
     }
     
-    const page = pages[pageIndex];
+    const pageData = doc.data();
+    const updates = {
+      updatedAt: admin.firestore.Timestamp.now()
+    };
     
-    // Update fields
+    // Update title if provided
     if (title) {
-      page.title = title;
-      page.titleSlug = generateSlug(title);
+      updates.title = title;
+      updates.titleSlug = generateSlug(title);
     }
     
+    // Regenerate content if new prompt provided
     if (prompt) {
-      // Regenerate content with new prompt
-      page.prompt = prompt;
-      page.content = await generatePageContent({
+      updates.originalPrompt = prompt;
+      updates.content = await generatePageContent({
         cityId,
-        title: title || page.title,
-        type: page.type,
+        title: title || pageData.title,
+        type: pageData.type,
         prompt
       });
     }
     
-    page.updatedAt = new Date().toISOString();
-    pages[pageIndex] = page;
+    await pageRef.update(updates);
     
-    res.json(page);
+    const updatedDoc = await pageRef.get();
+    const updatedData = updatedDoc.data();
+    
+    res.json({
+      id: updatedDoc.id,
+      ...updatedData,
+      createdAt: updatedData.createdAt.toDate().toISOString(),
+      updatedAt: updatedData.updatedAt.toDate().toISOString()
+    });
   } catch (error) {
     console.error('Error updating page:', error);
+    
+    if (error.code === 'permission-denied') {
+      return res.status(403).json({ error: 'Permission denied to update page' });
+    }
+    
     res.status(500).json({ error: 'Failed to update page' });
   }
 };
 
 // Delete page
-export const deletePage = (req, res) => {
+export const deletePage = async (req, res) => {
   try {
+    const db = getFirestore();
     const { cityId, pageId } = req.params;
     
-    const pageIndex = pages.findIndex(p => 
-      p.id === pageId && p.cityId === cityId
-    );
+    const pageRef = db.collection('cities')
+      .doc(cityId)
+      .collection('pages')
+      .doc(pageId);
     
-    if (pageIndex === -1) {
+    const doc = await pageRef.get();
+    if (!doc.exists) {
       return res.status(404).json({ error: 'Page not found' });
     }
     
-    pages.splice(pageIndex, 1);
+    await pageRef.delete();
     
     res.json({ message: 'Page deleted successfully' });
   } catch (error) {
     console.error('Error deleting page:', error);
+    
+    if (error.code === 'permission-denied') {
+      return res.status(403).json({ error: 'Permission denied to delete page' });
+    }
+    
     res.status(500).json({ error: 'Failed to delete page' });
   }
 };
