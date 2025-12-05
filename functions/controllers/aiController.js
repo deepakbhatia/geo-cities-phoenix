@@ -2,33 +2,21 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const functions = require('firebase-functions');
 const { getCachedAIGeneration, saveAIGeneration } = require('../utils/aiCache');
 
-// Lazy initialization - don't check env vars at import time
-let genAI = null;
-let model = null;
-let initialized = false;
-
+// Initialize model - using gemini-pro (stable model)
 function getModel() {
-  if (!initialized) {
-    // Get API key from Firebase Functions config
-    const apiKey = functions.config().gemini?.api_key || process.env.GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      console.error('❌ GEMINI_API_KEY not configured');
-      throw new Error('GEMINI_API_KEY is required. Set it with: firebase functions:config:set gemini.api_key="YOUR_KEY"');
-    }
-
-    console.log('✅ Gemini API Key loaded');
-
-    // Initialize GoogleGenerativeAI with API key
-    genAI = new GoogleGenerativeAI(apiKey);
-
-    // Configure gemini model
-    model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
-    
-    initialized = true;
-  }
+  // Get API key from Firebase Functions config
+  const apiKey = functions.config().gemini?.api_key || process.env.GEMINI_API_KEY;
   
-  return model;
+  if (!apiKey) {
+    console.error('❌ GEMINI_API_KEY not configured');
+    throw new Error('GEMINI_API_KEY is required. Set it with: firebase functions:config:set gemini.api_key="YOUR_KEY"');
+  }
+
+  // Initialize GoogleGenerativeAI with API key
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  // Configure gemini model
+  return genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
 }
 
 // Get cached AI content for a city
