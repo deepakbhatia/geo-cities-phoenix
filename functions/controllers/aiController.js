@@ -23,7 +23,7 @@ function getModel() {
     genAI = new GoogleGenerativeAI(apiKey);
 
     // Configure gemini model
-    model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
     
     initialized = true;
   }

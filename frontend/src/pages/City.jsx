@@ -78,6 +78,7 @@ function City() {
 
   // Generate functions
   const generatePublicSquare = async () => {
+    if (!city) return;
     try {
       setPublicSquareError('');
       setPublicSquareLoading(true);
@@ -91,11 +92,13 @@ function City() {
         })
       });
       if (!res.ok) {
-        throw new Error('Failed to generate public square update');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate public square update');
       }
       const data = await res.json();
       setPublicSquare(data.summary);
     } catch (err) {
+      console.error('Error generating public square:', err);
       setPublicSquareError(err.message);
     } finally {
       setPublicSquareLoading(false);
@@ -103,6 +106,7 @@ function City() {
   };
 
   const generateNewsletter = async () => {
+    if (!city) return;
     try {
       setNewsletterError('');
       setNewsletterLoading(true);
@@ -115,11 +119,13 @@ function City() {
         })
       });
       if (!res.ok) {
-        throw new Error('Failed to generate newsletter');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate newsletter');
       }
       const data = await res.json();
       setNewsletter(data.newsletter);
     } catch (err) {
+      console.error('Error generating newsletter:', err);
       setNewsletterError(err.message);
     } finally {
       setNewsletterLoading(false);
@@ -127,6 +133,7 @@ function City() {
   };
 
   const generateRadio = async () => {
+    if (!city) return;
     try {
       setRadioError('');
       setRadioLoading(true);
@@ -139,11 +146,13 @@ function City() {
         })
       });
       if (!res.ok) {
-        throw new Error('Failed to generate radio station');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate radio station');
       }
       const data = await res.json();
       setRadio(data.radioDescription);
     } catch (err) {
+      console.error('Error generating radio:', err);
       setRadioError(err.message);
     } finally {
       setRadioLoading(false);
@@ -152,41 +161,48 @@ function City() {
 
   // Load cached AI content when city loads, auto-generate if missing
   useEffect(() => {
-    if (city) {
-      fetch(`/api/ai/cached/${id}`)
-        .then(res => res.json())
-        .then(data => {
-          // Set cached content if available
-          if (data.publicSquare) {
-            setPublicSquare(data.publicSquare);
-          } else {
-            // Auto-generate if not cached
-            generatePublicSquare();
-          }
-          
-          if (data.newsletter) {
-            setNewsletter(data.newsletter);
-          } else {
-            // Auto-generate if not cached
-            generateNewsletter();
-          }
-          
-          if (data.radio) {
-            setRadio(data.radio);
-          } else {
-            // Auto-generate if not cached
-            generateRadio();
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching cached AI content:', err);
-          // Try to generate on error
+    if (!city) return;
+    
+    let isMounted = true;
+    
+    fetch(`/api/ai/cached/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        
+        // Set cached content if available
+        if (data.publicSquare) {
+          setPublicSquare(data.publicSquare);
+        } else {
+          // Auto-generate if not cached
           generatePublicSquare();
+        }
+        
+        if (data.newsletter) {
+          setNewsletter(data.newsletter);
+        } else {
+          // Auto-generate if not cached
           generateNewsletter();
+        }
+        
+        if (data.radio) {
+          setRadio(data.radio);
+        } else {
+          // Auto-generate if not cached
           generateRadio();
-        });
-    }
-  }, [city, id, generatePublicSquare, generateNewsletter, generateRadio]);
+        }
+      })
+      .catch(err => {
+        if (!isMounted) return;
+        console.error('Error fetching cached AI content:', err);
+        // Don't auto-generate on error to prevent infinite loops
+      });
+    
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city, id]);
 
   if (loading) return <div className="loading">Loading city...</div>;
   if (error) return <div className="loading">{error}</div>;
